@@ -1,5 +1,17 @@
 package kr.letsnow.crema;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import kr.letsnow.crema.file.FileListEntry;
+import kr.letsnow.crema.file.FileLister;
+import kr.letsnow.crema.treeview.InMemoryTreeStateManager;
+import kr.letsnow.crema.treeview.TreeBuilder;
+import kr.letsnow.crema.treeview.TreeStateManager;
+import kr.letsnow.crema.treeview.TreeViewAdapter;
+import kr.letsnow.crema.treeview.TreeViewList;
+import kr.letsnow.crema.utils.CLog;
 import android.support.v7.app.ActionBarActivity;
 import android.app.Activity;
 import android.support.v7.app.ActionBar;
@@ -11,6 +23,7 @@ import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -19,7 +32,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.ImageView;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 /**
@@ -53,12 +68,25 @@ public class NavigationDrawerFragment extends Fragment {
 	private ActionBarDrawerToggle mDrawerToggle;
 
 	private DrawerLayout mDrawerLayout;
-	private ListView mDrawerListView;
+	//private ListView mDrawerListView;
 	private View mFragmentContainerView;
 
 	private int mCurrentSelectedPosition = 0;
 	private boolean mFromSavedInstanceState;
 	private boolean mUserLearnedDrawer;
+
+    private final Set<Long> selected = new HashSet<Long>();
+
+    private View		containerView;
+    private TreeViewList mDirectoryTreeView;
+    private TextView mCurrentSizeTextView;
+    private TextView mTotalSizeTextView;
+    private ImageView mSizeProgressImageView;
+
+    private TreeStateManager<Long> manager = null;
+    private TreeViewAdapter treeViewAdapter;
+    private boolean collapsible;
+    private int	treeLevel = 1;
 
 	public NavigationDrawerFragment() {
 	}
@@ -74,11 +102,6 @@ public class NavigationDrawerFragment extends Fragment {
 				.getDefaultSharedPreferences(getActivity());
 		mUserLearnedDrawer = sp.getBoolean(PREF_USER_LEARNED_DRAWER, false);
 
-		if (savedInstanceState != null) {
-			mCurrentSelectedPosition = savedInstanceState
-					.getInt(STATE_SELECTED_POSITION);
-			mFromSavedInstanceState = true;
-		}
 
 		// Select either the default item (0) or the last selected item.
 		selectItem(mCurrentSelectedPosition);
@@ -92,27 +115,86 @@ public class NavigationDrawerFragment extends Fragment {
 		setHasOptionsMenu(true);
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public View onCreateView(LayoutInflater inflater, ViewGroup container,
 			Bundle savedInstanceState) {
-		mDrawerListView = (ListView) inflater.inflate(
-				R.layout.fragment_navigation_drawer, container, false);
-		mDrawerListView
-				.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-					@Override
-					public void onItemClick(AdapterView<?> parent, View view,
-							int position, long id) {
-						selectItem(position);
-					}
-				});
-		mDrawerListView.setAdapter(new ArrayAdapter<String>(getActionBar()
-				.getThemedContext(), android.R.layout.simple_list_item_1,
-				android.R.id.text1, new String[] {
-						getString(R.string.title_section1),
-						getString(R.string.title_section2),
-						getString(R.string.title_section3), }));
-		mDrawerListView.setItemChecked(mCurrentSelectedPosition, true);
-		return mDrawerListView;
+//		mDrawerListView = (ListView) inflater.inflate(
+//				R.layout.fragment_navigation_drawer, container, false);
+//		mDrawerListView
+//				.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+//					@Override
+//					public void onItemClick(AdapterView<?> parent, View view,
+//							int position, long id) {
+//						selectItem(position);
+//					}
+//				});
+//		mDrawerListView.setAdapter(new ArrayAdapter<String>(getActionBar()
+//				.getThemedContext(), android.R.layout.simple_list_item_1,
+//				android.R.id.text1, new String[] {
+//						getString(R.string.title_section1),
+//						getString(R.string.title_section2),
+//						getString(R.string.title_section3), }));
+//		mDrawerListView.setItemChecked(mCurrentSelectedPosition, true);
+//		return mDrawerListView;
+		// TODO...
+		boolean newCollapsible;
+		if (savedInstanceState != null) {
+			mCurrentSelectedPosition = savedInstanceState
+					.getInt(STATE_SELECTED_POSITION);
+			mFromSavedInstanceState = true;
+
+            manager = (TreeStateManager<Long>) savedInstanceState.getSerializable("treeManager");
+            if (manager == null) {
+                manager = new InMemoryTreeStateManager<Long>();
+            }
+            newCollapsible = savedInstanceState.getBoolean("collapsible");
+            treeLevel = savedInstanceState.getInt("treeLevel");
+		} else {
+            manager = new InMemoryTreeStateManager<Long>();
+            final TreeBuilder<Long> treeBuilder = new TreeBuilder<Long>(manager);
+            
+    		setDirectoryListItem(treeBuilder);
+            CLog.d(this, manager.toString());
+            newCollapsible = true;
+		}
+
+		View view = inflater.inflate(R.layout.fragment_navigation_drawer, container, false);
+
+		mDirectoryTreeView = (TreeViewList) view.findViewById(R.id.directory_treeview);
+		mCurrentSizeTextView = (TextView) view.findViewById(R.id.use_size);
+		mTotalSizeTextView = (TextView) view.findViewById(R.id.total_size);
+		mSizeProgressImageView = (ImageView) view.findViewById(R.id.size_progress);
+
+        treeViewAdapter = new TreeViewAdapter(getActivity(), selected, manager, treeLevel);
+        mDirectoryTreeView.setAdapter(treeViewAdapter);
+        setCollapsible(newCollapsible);
+        registerForContextMenu(mDirectoryTreeView);
+
+		setSizeView();
+		return view;
+	}
+	
+	private void setDirectoryListItem(TreeBuilder<Long> treeBuilder) {
+		
+//	    int[] DEMO_NODES = new int[] { 0, 0, 1, 1, 1, 2, 2, 1,
+//            1, 2, 1, 0, 0, 0, 1, 2, 3, 2, 0, 0, 1, 2, 0, 1, 2, 0, 1 };
+//	    int LEVEL_NUMBER = 4;
+
+		List<FileListEntry> files = FileLister.getSDCardAllDirectoryLists();
+		if (files != null && files.size() > 0) {
+			long i = 0;
+			for (FileListEntry file : files) {
+				CLog.d(this, "count:" + i + ", file["+file.toString()+"]");
+				treeBuilder.sequentiallyAddNextNode(i++, file.getName(), 0);
+			}
+		}
+		
+		this.treeLevel = 1;
+	}
+	
+	private void setSizeView() {
+		
 	}
 
 	public boolean isDrawerOpen() {
@@ -211,9 +293,10 @@ public class NavigationDrawerFragment extends Fragment {
 
 	private void selectItem(int position) {
 		mCurrentSelectedPosition = position;
-		if (mDrawerListView != null) {
-			mDrawerListView.setItemChecked(position, true);
-		}
+		//TODO.
+//		if (mDrawerListView != null) {
+//			mDrawerListView.setItemChecked(position, true);
+//		}
 		if (mDrawerLayout != null) {
 			mDrawerLayout.closeDrawer(mFragmentContainerView);
 		}
@@ -241,8 +324,13 @@ public class NavigationDrawerFragment extends Fragment {
 
 	@Override
 	public void onSaveInstanceState(Bundle outState) {
-		super.onSaveInstanceState(outState);
 		outState.putInt(STATE_SELECTED_POSITION, mCurrentSelectedPosition);
+		
+        outState.putSerializable("treeManager", manager);
+        outState.putBoolean("collapsible", this.collapsible);
+        outState.putInt("treeLevel", this.treeLevel);
+        
+        super.onSaveInstanceState(outState);
 	}
 
 	@Override
@@ -306,4 +394,9 @@ public class NavigationDrawerFragment extends Fragment {
 		 */
 		void onNavigationDrawerItemSelected(int position);
 	}
+	
+    protected final void setCollapsible(final boolean newCollapsible) {
+        this.collapsible = newCollapsible;
+        mDirectoryTreeView.setCollapsible(this.collapsible);
+    }
 }

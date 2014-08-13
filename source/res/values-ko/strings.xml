@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">크레마 파일 탐색기</string>
+    <string name="title_section1">타이틀 1</string>
+    <string name="title_section2">타이틀 2</string>
+    <string name="title_section3">타이틀 3</string>
+    <string name="navigation_drawer_open">네비게이션 열기</string>
+    <string name="navigation_drawer_close">네비게이션 닫기</string>
+    <string name="action_example">예제 동작</string>
+    <string name="action_settings">환경설정</string>
+
+</resources>

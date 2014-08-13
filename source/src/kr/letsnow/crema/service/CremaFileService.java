@@ -7,6 +7,8 @@ import android.os.IBinder;
 import android.widget.Toast;
 
 public class CremaFileService extends Service {
+	private static CremaFileService instance = null;
+	
 	private static final String TAG = "CremaService";
 	private final IBinder fileBinder = new CremaFileBinder();
 

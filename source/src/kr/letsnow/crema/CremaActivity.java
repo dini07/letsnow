@@ -1,7 +1,10 @@
 package kr.letsnow.crema;
 
-import kr.letsnow.crema.service.CremaFileService;
-import kr.letsnow.crema.service.CremaFileService.CremaFileBinder;
+import java.util.Locale;
+
+import com.google.analytics.tracking.android.EasyTracker;
+
+
 import android.app.Activity;
 import android.support.v7.app.ActionBarActivity;
 import android.support.v7.app.ActionBar;
@@ -11,9 +14,13 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Message;
+import android.os.RemoteException;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -21,8 +28,12 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.support.v4.widget.DrawerLayout;
+import android.text.TextUtils;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
+
+import kr.letsnow.crema.file.FindHistory;
+import kr.letsnow.crema.service.*;
 
 public class CremaActivity extends ActionBarActivity implements
 		NavigationDrawerFragment.NavigationDrawerCallbacks {
@@ -54,17 +65,33 @@ public class CremaActivity extends ActionBarActivity implements
 		
 		
 		// Start Service
-		Intent intent = new Intent(this, CremaFileService.class);
-		bindService(intent, mServiceConnection, Context.BIND_AUTO_CREATE);
+		Intent intent = new Intent("kr.letsnow.crema.IRemoteService");
+//		bindService(intent, mServiceConnection, Context.BIND_AUTO_CREATE);
+		
+//		Intent intent = new Intent("kr.letsnow.crema.service.IRemoteService");
+		startService(intent);
 	}
 
 	@Override
+	public void onStart() {
+		super.onStart();
+		EasyTracker.getInstance(this).activityStart(this);
+	}
+	
+	@Override
+	public void onStop() {
+		super.onStop();
+		EasyTracker.getInstance(this).activityStop(this);
+	}
+	  
+	@Override
 	protected void onDestroy() {
 		// Stop Service
-		if (mBound)
-			unbindService(mServiceConnection);
+//		if (mBound)
+//			unbindService(mServiceConnection);
 		
-		
+		Intent intent = new Intent("kr.letsnow.crema.service.IRemoteService");
+		stopService(intent);
 		super.onDestroy();
 	}
 	
@@ -164,33 +191,89 @@ public class CremaActivity extends ActionBarActivity implements
 		}
 	}
 	
-	
+
+	/*************************************************************************************************/
+	// 공통 Handler
+    private Handler mHandler = new Handler() {
+        @Override public void handleMessage(Message msg) {
+            switch (msg.what) {
+                default:
+                    super.handleMessage(msg);
+            }
+        }
+
+    };
+    
 	/*************************************************************************************************/
 	// Service 
-	CremaFileService mService;
-	boolean			mBound;
+//	CremaFileService mService;
+//	boolean			mBound;
+//	
+//	private ServiceConnection	mServiceConnection = new ServiceConnection() {
+//
+//		@Override
+//		public void onServiceConnected(ComponentName name, IBinder service) {
+//			// TODO Auto-generated method stub
+//			CremaFileBinder binder = (CremaFileBinder) service;
+//			mService = binder.getService();
+//			mBound = true;
+//			
+//			//test!!!!!!!!!
+//			mService.showToast("bind success!!!");
+//		}
+//
+//		@Override
+//		public void onServiceDisconnected(ComponentName name) {
+//			// TODO Auto-generated method stub
+//			mBound = false;
+//			
+//		}
+//		
+//	};
+
+	// Remote Service
+	private IRemoteService	mService = null;
+	boolean	mBound = false;
+	private IRemoteServiceCallback mServiceCallback = new IRemoteServiceCallback.Stub() {
+		public void MessageCallback(int msg) {
+			mHandler.sendEmptyMessage(msg);
+		}
+	};
 	
 	private ServiceConnection	mServiceConnection = new ServiceConnection() {
 
 		@Override
 		public void onServiceConnected(ComponentName name, IBinder service) {
 			// TODO Auto-generated method stub
-			CremaFileBinder binder = (CremaFileBinder) service;
-			mService = binder.getService();
+			mService = IRemoteService.Stub.asInterface(service);
 			mBound = true;
-			
-			//test!!!!!!!!!
-			mService.showToast("bind success!!!");
+			try {
+				mService.registerCallback(mServiceCallback);
+			} catch(RemoteException e) {
+				// TODO... 
+				
+			}
 		}
 
 		@Override
 		public void onServiceDisconnected(ComponentName name) {
 			// TODO Auto-generated method stub
+			mService = null;
 			mBound = false;
-			
 		}
 		
 	};
-
+	
 	/*************************************************************************************************/
+	
+	public static void updateLanguage(Context ctx, String lang)
+	{
+		Configuration cfg = new Configuration();
+		if (!TextUtils.isEmpty(lang))
+			cfg.locale = new Locale(lang);
+		else
+			cfg.locale = Locale.getDefault();
+		
+		ctx.getResources().updateConfiguration(cfg, null);
+	  }
 }
