@@ -8,6 +8,8 @@ import com.cremamobile.filemanager.file.Exception.ExistSameFileNameException;
 
 import android.graphics.Bitmap;
 import android.media.ThumbnailUtils;
+import android.os.Environment;
+import android.os.StatFs;
 
 
 public class FileUtils {
@@ -84,4 +86,92 @@ public class FileUtils {
 		//TODO.
 		return null;
 	}
+	
+	public static String getTotalInternalMemorySize() {
+		File path = Environment.getDataDirectory();
+        StatFs stat = new StatFs(path.getPath());
+        long blockSize = stat.getBlockSize();
+        long totalBlocks = stat.getBlockCount();
+
+        return formatSize(totalBlocks * blockSize);
+	}
+	
+	public static String getAvaiableInternalMemorySize() {
+		File path = Environment.getDataDirectory();
+        StatFs stat = new StatFs(path.getPath());
+        long blockSize = stat.getBlockSize();
+        long availableBlocks = stat.getAvailableBlocks();
+
+        return formatSize(availableBlocks * blockSize);
+
+	}
+	
+	public static String getTotalExternalMemorySize() {
+		if (isStorage(true) == true) {
+            File path = Environment.getExternalStorageDirectory();
+            StatFs stat = new StatFs(path.getPath());
+            long blockSize = stat.getBlockSize();
+            long totalBlocks = stat.getBlockCount();
+
+            return formatSize(totalBlocks * blockSize);
+       } else {
+            return formatSize(-1);
+       }
+	}
+	
+	public static String getAvaiableExternalMemorySize() {
+		if (isStorage(true) == true) {
+            File path = Environment.getExternalStorageDirectory();
+            StatFs stat = new StatFs(path.getPath());
+            long blockSize = stat.getBlockSize();
+            long availableBlocks = stat.getAvailableBlocks();
+            return formatSize(availableBlocks * blockSize);
+        } else {
+            return formatSize(-1);
+        }
+	}
+	
+	/** 보기 좋게 MB,KB 단위로 축소시킨다 */
+    public static String formatSize(long size) {
+         String suffix = null;
+ 
+         if (size >= 1024) {
+             suffix = "KB";
+             size /= 1024;
+             if (size >= 1024) {
+                  suffix = "MB";
+                  size /= 1024;
+             }
+             if (size >= 1024) {
+                 suffix = "GB";
+                 size /= 1024;
+            }
+        }
+        StringBuilder resultBuffer = new StringBuilder(Long.toString(size));
+ 
+        int commaOffset = resultBuffer.length() - 3;
+        while (commaOffset > 0) {
+             resultBuffer.insert(commaOffset, ',');
+             commaOffset -= 3;
+        }
+ 
+         if (suffix != null) {
+              resultBuffer.append(suffix);
+         }
+ 
+         return resultBuffer.toString();
+    }
+    
+    /** 외장메모리 sdcard 사용가능한지에 대한 여부 판단 */
+    public static boolean isStorage(boolean requireWriteAccess) {
+         String state = Environment.getExternalStorageState();
+ 
+          if (Environment.MEDIA_MOUNTED.equals(state)) {
+                return true;
+          } else if (!requireWriteAccess &&
+               Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
+               return true;
+          }
+          return false;
+    }
 }

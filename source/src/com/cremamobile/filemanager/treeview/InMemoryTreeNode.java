@@ -13,18 +13,23 @@ import java.util.List;
 class InMemoryTreeNode<T> implements Serializable {
     private static final long serialVersionUID = 1L;
     private final T id;
+    private final boolean isRoot;
     private final T parent;
     private final int level;
-    private final String message;
+    private final String path;
+    private final String name;
     private boolean visible = true;
+    private boolean needSearchChild = true;
     private final List<InMemoryTreeNode<T>> children = new LinkedList<InMemoryTreeNode<T>>();
     private List<T> childIdListCache = null;
 
-    public InMemoryTreeNode(final T id, final String message, final T parent, final int level,
+    public InMemoryTreeNode(final T id, final String path, final String name, final boolean isRoot, final T parent, final int level,
             final boolean visible) {
         super();
         this.id = id;
-        this.message = message;
+        this.isRoot = isRoot;
+        this.path = path;
+        this.name = name;
         this.parent = parent;
         this.level = level;
         this.visible = visible;
@@ -62,11 +67,11 @@ class InMemoryTreeNode<T> implements Serializable {
         return children.size();
     }
 
-    public synchronized InMemoryTreeNode<T> add(final int index, final T child, final String childMessage,
-            final boolean visible) {
+    public synchronized InMemoryTreeNode<T> add(final int index, final T child, final String childPath, final String childName,
+            final boolean isRoot, final boolean visible) {
         childIdListCache = null;
         // Note! top levell children are always visible (!)
-        final InMemoryTreeNode<T> newNode = new InMemoryTreeNode<T>(child, childMessage,
+        final InMemoryTreeNode<T> newNode = new InMemoryTreeNode<T>(child, childPath, childName, isRoot,
                 getId(), getLevel() + 1, getId() == null ? true : visible);
         children.add(index, newNode);
         return newNode;
@@ -82,9 +87,14 @@ class InMemoryTreeNode<T> implements Serializable {
         return children;
     }
 
+    public boolean isRoot() {
+    	return isRoot;
+    }
+    
     public synchronized void clearChildren() {
         children.clear();
         childIdListCache = null;
+        needSearchChild = true;
     }
 
     public synchronized void removeChild(final T child) {
@@ -97,10 +107,11 @@ class InMemoryTreeNode<T> implements Serializable {
 
     @Override
     public String toString() {
-        return "InMemoryTreeNode [id=" + getId()
-        		+ ", message=" + getMessage()
-        		+ ", parent=" + getParent()
-                + ", level=" + getLevel() + ", visible=" + visible
+        return "InMemoryTreeNode [id=" + id
+        		+ ", path=" + path
+        		+ ", name=" + name
+        		+ ", parent=" + parent
+                + ", level=" + level + ", visible=" + visible
                 + ", children=" + children + ", childIdListCache="
                 + childIdListCache + "]";
     }
@@ -117,8 +128,20 @@ class InMemoryTreeNode<T> implements Serializable {
         return level;
     }
     
-    String getMessage() {
-    	return message;
+    String getPath() {
+    	return path;
+    }
+    
+    String getName() {
+    	return name;
+    }
+    
+    boolean isNeedSearchChild() {
+    	return needSearchChild;
+    }
+    
+    void setNeedSearchChild(boolean need) {
+    	needSearchChild = need;
     }
 
 }

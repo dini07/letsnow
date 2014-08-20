@@ -2,7 +2,9 @@
 <resources>
 	<declare-styleable name="TreeViewList">
 	    <attr name="collapsible" format="boolean" />
-		<attr name="src_expanded" format="reference|color" />
+	    <attr name="src_root_collapsed" format="reference|color" />
+	    <attr name="src_root_expended" format="reference|color" />
+	    <attr name="src_expanded" format="reference|color" />
 		<attr name="src_collapsed" format="reference|color" />
         <attr name="indent_width" format="dimension" />
         <attr name="handle_trackball_press" format="boolean" />

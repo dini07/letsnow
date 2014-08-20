@@ -1,15 +1,19 @@
 package com.cremamobile.filemanager;
 
+import java.io.File;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import com.cremamobile.filemanager.file.FileListEntry;
 import com.cremamobile.filemanager.file.FileLister;
+import com.cremamobile.filemanager.file.FileUtils;
 import com.cremamobile.filemanager.treeview.InMemoryTreeStateManager;
 import com.cremamobile.filemanager.treeview.TreeBuilder;
+import com.cremamobile.filemanager.treeview.TreeNodeInfo;
 import com.cremamobile.filemanager.treeview.TreeStateManager;
 import com.cremamobile.filemanager.treeview.TreeViewAdapter;
+import com.cremamobile.filemanager.treeview.TreeViewAdapterParent;
 import com.cremamobile.filemanager.treeview.TreeViewList;
 import com.cremamobile.filemanager.utils.CLog;
 
@@ -33,6 +37,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.ListView;
@@ -81,7 +86,7 @@ public class NavigationDrawerFragment extends Fragment {
 
     private View		containerView;
     private TreeViewList mDirectoryTreeView;
-    private TextView mCurrentSizeTextView;
+    private TextView mAvailableSizeTextView;
     private TextView mTotalSizeTextView;
     private ImageView mSizeProgressImageView;
 
@@ -90,6 +95,41 @@ public class NavigationDrawerFragment extends Fragment {
     private boolean collapsible;
     private int	treeLevel = 1;
 
+    TreeViewAdapterParent<Long> treeListParent = new TreeViewAdapterParent<Long>() {
+		@Override
+		public void updateChildList(Long parent, String path) {
+			// TODO Auto-generated method stub
+			updateTreeBuilder(parent, path);
+		}    	
+    };
+    
+    public void updateTreeBuilder(Long parent, String path) {
+    	TreeBuilder<Long> treeBuilder = manager.getTreeBuilder();
+    	
+    	List<FileListEntry> files = FileLister.getDirectoryLists(new File(path), 2);
+		if (files != null && files.size() > 0) {
+			long i = treeBuilder.getLastAddedId();
+			for (FileListEntry file : files) {
+				CLog.d(this, "count:" + i + ", file["+file.toString()+"]");
+				
+				treeBuilder.addRelation(parent, ++i, file.getAbsolutePath(), file.getName(), false);
+				
+				long currentId = i;
+				if (file.getChildFileNumber() > 0) {
+					List<FileListEntry> childFiles = file.getChildLists();
+					for (FileListEntry childFile : childFiles) {
+						CLog.d(this, "  - child.. count:" + i + ", file["+file.toString()+"]");
+						treeBuilder.addRelation(currentId, ++i, childFile.getAbsolutePath(), childFile.getName(), false);
+					}
+				}
+				
+				treeViewAdapter.collapse(currentId);
+				
+			}
+			treeViewAdapter.collapse(parent);
+		}
+    }
+    
 	public NavigationDrawerFragment() {
 	}
 
@@ -149,14 +189,17 @@ public class NavigationDrawerFragment extends Fragment {
             manager = (TreeStateManager<Long>) savedInstanceState.getSerializable("treeManager");
             if (manager == null) {
                 manager = new InMemoryTreeStateManager<Long>();
+                manager.setTreeBuilder(new TreeBuilder<Long>(manager));
             }
             newCollapsible = savedInstanceState.getBoolean("collapsible");
             treeLevel = savedInstanceState.getInt("treeLevel");
 		} else {
             manager = new InMemoryTreeStateManager<Long>();
-            final TreeBuilder<Long> treeBuilder = new TreeBuilder<Long>(manager);
+            manager.setTreeBuilder(new TreeBuilder<Long>(manager));
             
-    		setDirectoryListItem(treeBuilder);
+    		setDirectoryListItem(manager.getTreeBuilder());
+    		manager.collapseChildren(null);	//전부 닫는다.
+    		
             CLog.d(this, manager.toString());
             newCollapsible = true;
 		}
@@ -164,17 +207,24 @@ public class NavigationDrawerFragment extends Fragment {
 		View view = inflater.inflate(R.layout.fragment_navigation_drawer, container, false);
 
 		mDirectoryTreeView = (TreeViewList) view.findViewById(R.id.directory_treeview);
-		mCurrentSizeTextView = (TextView) view.findViewById(R.id.use_size);
-		mTotalSizeTextView = (TextView) view.findViewById(R.id.total_size);
 		mSizeProgressImageView = (ImageView) view.findViewById(R.id.size_progress);
 
-        treeViewAdapter = new TreeViewAdapter(getActivity(), selected, manager, treeLevel);
+		mTotalSizeTextView = (TextView) view.findViewById(R.id.total_size);
+		mAvailableSizeTextView = (TextView) view.findViewById(R.id.use_size);
+		
+        treeViewAdapter = new TreeViewAdapter(getActivity(), treeListParent, manager, treeLevel);
         mDirectoryTreeView.setAdapter(treeViewAdapter);
         setCollapsible(newCollapsible);
         registerForContextMenu(mDirectoryTreeView);
 
+        setStorageSize();
 		setSizeView();
 		return view;
+	}
+	
+	private void setStorageSize() {
+		mTotalSizeTextView.setText(getString(R.string.total_size) + " " +FileUtils.getTotalExternalMemorySize());
+		mAvailableSizeTextView.setText(getString(R.string.use_size) +  " " + FileUtils.getAvaiableExternalMemorySize());
 	}
 	
 	private void setDirectoryListItem(TreeBuilder<Long> treeBuilder) {
@@ -183,13 +233,26 @@ public class NavigationDrawerFragment extends Fragment {
 //            1, 2, 1, 0, 0, 0, 1, 2, 3, 2, 0, 0, 1, 2, 0, 1, 2, 0, 1 };
 //	    int LEVEL_NUMBER = 4;
 
-		List<FileListEntry> files = FileLister.getSDCardAllDirectoryLists();
+		FileLister.readVoldFile(getActivity().getApplicationContext());
+		FileLister.testAndCleanList();
+		FileLister.setProperties();
+		
+		List<FileListEntry> files = FileLister.getSDCardDirectoryLists(2);
 		if (files != null && files.size() > 0) {
 			long i = 0;
 			for (FileListEntry file : files) {
 				CLog.d(this, "count:" + i + ", file["+file.toString()+"]");
-				treeBuilder.sequentiallyAddNextNode(i++, file.getName(), 0);
+				treeBuilder.sequentiallyAddNextNode(i++, file.getAbsolutePath(), file.getName(), false, 0);
+				if (file.getChildFileNumber() > 0) {
+					List<FileListEntry> childFiles = file.getChildLists();
+					for (FileListEntry childFile : childFiles) {
+						CLog.d(this, "  - child.. count:" + i + ", file["+file.toString()+"]");
+						treeBuilder.sequentiallyAddNextNode(i++, childFile.getAbsolutePath(), childFile.getName(), false, 1);
+					}
+				}
 			}
+			
+			// addNodeToParentOneLevelDown
 		}
 		
 		this.treeLevel = 1;

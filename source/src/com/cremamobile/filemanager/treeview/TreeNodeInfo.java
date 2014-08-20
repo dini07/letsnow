@@ -8,11 +8,14 @@ package com.cremamobile.filemanager.treeview;
  */
 public class TreeNodeInfo<T> {
     private final T id;
-    private final String message;
+    private final String absolutePath;
+    private final String name;
     private final int level;
-    private final boolean withChildren;
-    private final boolean visible;
-    private final boolean expanded;
+    private final boolean isRoot;
+    private boolean withChildren;
+    private boolean visible;
+    private boolean expanded;
+    private boolean needSearchChild;
 
     /**
      * Creates the node information.
@@ -29,28 +32,39 @@ public class TreeNodeInfo<T> {
      *            whether the tree node is expanded
      * 
      */
-    public TreeNodeInfo(final T id, final String message, final int level,
-            final boolean withChildren, final boolean visible,
-            final boolean expanded) {
+    public TreeNodeInfo(final T id, final String path, final String name, final boolean isRoot, final int level,
+            boolean withChildren, boolean visible,
+            boolean expanded, boolean needSearchChild) {
         super();
         this.id = id;
-        this.message = message;
+        this.absolutePath = path;
+        this.name = name;
+        this.isRoot = isRoot;
         this.level = level;
         this.withChildren = withChildren;
         this.visible = visible;
         this.expanded = expanded;
+    	this.needSearchChild = needSearchChild;
     }
 
     public T getId() {
         return id;
     }
 
-    public String getMessage() {
-    	return message;
+    public String getName() {
+    	return name;
+    }
+    
+    public String getPaht() {
+    	return absolutePath;
     }
     
     public boolean isWithChildren() {
         return withChildren;
+    }
+    
+    public boolean isNeedSearchChild() {
+    	return needSearchChild;
     }
 
     public boolean isVisible() {
@@ -65,12 +79,20 @@ public class TreeNodeInfo<T> {
         return level;
     }
 
+    public boolean isRoot() {
+    	return isRoot;
+    }
+    
     @Override
     public String toString() {
         return "TreeNodeInfo [id=" + id
-        		+ ", message=" + message
+        		+ ", absolutePath=" + absolutePath
+        		+ ", name="+name
+        		+ ", isRoot="+isRoot
         		+ ", level=" + level
-                + ", withChildren=" + withChildren + ", visible=" + visible
+                + ", withChildren=" + withChildren
+                + ", needSearchChildren=" + needSearchChild
+                + ", visible=" + visible
                 + ", expanded=" + expanded + "]";
     }
 

@@ -1,6 +1,7 @@
 package com.cremamobile.filemanager.treeview;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 
 import com.cremamobile.filemanager.utils.CLog;
@@ -9,11 +10,14 @@ import com.cremamobile.filemanager.R;
 import android.app.Activity;
 import android.content.Context;
 import android.database.DataSetObserver;
+import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
 import android.widget.BaseAdapter;
 import android.widget.FrameLayout;
 import android.widget.TextView;
@@ -29,16 +33,16 @@ import android.widget.ListAdapter;
  * @param <T>
  *            class for ID of the tree
  */
-public class TreeViewAdapter extends BaseAdapter implements
-        ListAdapter {    
-    private final Set<Long> selected;
-
+public class TreeViewAdapter extends BaseAdapter implements ListAdapter {    
     private final TreeStateManager<Long> treeStateManager;
-    private final int numberOfLevels;
+    private int numberOfRoot;
+    private int numberOfLevels;
     private final LayoutInflater layoutInflater;
 
     private int indentWidth = 0;
     private int indicatorGravity = 0;
+    private Drawable rootCollapsedDrawable;
+    private Drawable rootExpendedDrawable;
     private Drawable collapsedDrawable;
     private Drawable expandedDrawable;
     private Drawable indicatorBackgroundDrawable;
@@ -46,15 +50,7 @@ public class TreeViewAdapter extends BaseAdapter implements
 
     private boolean collapsible;
     private final Activity activity;
-    
-    private final OnClickListener indicatorClickListener = new OnClickListener() {
-        @Override
-        public void onClick(final View v) {
-            @SuppressWarnings("unchecked")
-            final Long id = (Long) v.getTag();
-            expandCollapse(id);
-        }
-    };
+    private final TreeViewAdapterParent<Long> adapterParent;
 
     public Activity getActivity() {
         return activity;
@@ -64,7 +60,7 @@ public class TreeViewAdapter extends BaseAdapter implements
         return treeStateManager;
     }
 
-    protected void expandCollapse(final Long id) {
+    public void expandCollapse(final Long id) {
         final TreeNodeInfo<Long> info = treeStateManager.getNodeInfo(id);
         if (!info.isWithChildren()) {
             // ignore - no default action
@@ -76,7 +72,20 @@ public class TreeViewAdapter extends BaseAdapter implements
             treeStateManager.expandDirectChildren(id);
         }
     }
+    
+    public void collapse(final Long id) {
+        final TreeNodeInfo<Long> info = treeStateManager.getNodeInfo(id);
+    	if (info.isWithChildren() && info.isExpanded()) {
+            treeStateManager.collapseChildren(id);
+        }
+    }
+    
 
+    public boolean isNeedSearchChild(final Long id) {
+        final TreeNodeInfo<Long> info = treeStateManager.getNodeInfo(id);
+    	return info.isNeedSearchChild();
+    }
+    
     private void calculateIndentWidth() {
         if (expandedDrawable != null) {
             indentWidth = Math.max(getIndentWidth(),
@@ -88,19 +97,40 @@ public class TreeViewAdapter extends BaseAdapter implements
         }
     }
     
-    public TreeViewAdapter(final Activity activity,
-    		final Set<Long> selected,
-            final TreeStateManager<Long> treeStateManager, final int numberOfLevels) {
+    public TreeViewAdapter(final Activity activity, final TreeViewAdapterParent<Long> parent, 
+    		final TreeStateManager<Long> treeStateManager, 
+    		int numberOfLevels, int numberOfRoot) {
         this.activity = activity;
+        this.adapterParent = parent;
         this.treeStateManager = treeStateManager;
         this.layoutInflater = (LayoutInflater) activity
                 .getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        this.numberOfRoot = numberOfRoot;
         this.numberOfLevels = numberOfLevels;
+        this.rootCollapsedDrawable = null;
+        this.rootExpendedDrawable = null;
         this.collapsedDrawable = null;
         this.expandedDrawable = null;
         this.rowBackgroundDrawable = null;
         this.indicatorBackgroundDrawable = null;
-        this.selected = selected;
+    }
+    
+    public TreeViewAdapter(final Activity activity,
+    		final TreeViewAdapterParent<Long> parent, 
+            final TreeStateManager<Long> treeStateManager, final int numberOfLevels) {
+        this.activity = activity;
+        this.adapterParent = parent;
+        this.treeStateManager = treeStateManager;
+        this.layoutInflater = (LayoutInflater) activity
+                .getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        this.numberOfRoot = 1;	//default
+        this.numberOfLevels = numberOfLevels;
+        this.rootCollapsedDrawable = null;
+        this.rootExpendedDrawable = null;
+        this.collapsedDrawable = null;
+        this.expandedDrawable = null;
+        this.rowBackgroundDrawable = null;
+        this.indicatorBackgroundDrawable = null;
     }
 
     @Override
@@ -143,9 +173,13 @@ public class TreeViewAdapter extends BaseAdapter implements
 
     @Override
     public int getViewTypeCount() {
-        return numberOfLevels;
+        return numberOfLevels + (numberOfRoot == 1 ? 0 : 1);
     }
-
+    
+    public int getRootCount() {
+    	return numberOfRoot;
+    }
+    
     @Override
     public boolean isEmpty() {
         return getCount() == 0;
@@ -198,10 +232,7 @@ public class TreeViewAdapter extends BaseAdapter implements
         final LinearLayout viewLayout = (LinearLayout) view;
         final TextView descriptionView = (TextView) viewLayout
                 .findViewById(R.id.demo_list_item_description);
-        final TextView levelView = (TextView) viewLayout
-                .findViewById(R.id.demo_list_item_level);
-        descriptionView.setText(getDescription(treeNodeInfo.getId(), treeNodeInfo.getMessage()));
-        levelView.setText(Integer.toString(treeNodeInfo.getLevel()));
+        descriptionView.setText(treeNodeInfo.getName());
         return viewLayout;
     }
 
@@ -229,6 +260,9 @@ public class TreeViewAdapter extends BaseAdapter implements
     public final LinearLayout populateTreeItem(final LinearLayout layout,
             final View childView, final TreeNodeInfo<Long> nodeInfo,
             final boolean newChildView) {
+    	// 전체 영역 클릭 시 동작시킨다.
+    	//final View itemLayout = layout.findViewById(R.id.treeview_list_item_frame);
+    	
         final Drawable individualRowDrawable = getBackgroundDrawable(nodeInfo);
         layout.setBackgroundDrawable(individualRowDrawable == null ? getDrawableOrDefaultBackground(rowBackgroundDrawable)
                 : individualRowDrawable);
@@ -236,19 +270,22 @@ public class TreeViewAdapter extends BaseAdapter implements
                 calculateIndentation(nodeInfo), LayoutParams.FILL_PARENT);
         final LinearLayout indicatorLayout = (LinearLayout) layout
                 .findViewById(R.id.treeview_list_item_image_layout);
+//        indicatorLayout.setOnClickListener(itemClickListener);
         indicatorLayout.setGravity(indicatorGravity);
         indicatorLayout.setLayoutParams(indicatorLayoutParams);
+        indicatorLayout.setTag(nodeInfo.getId());
         final ImageView image = (ImageView) layout
-                .findViewById(R.id.treeview_list_item_image);
+                .findViewById(R.id.treeview_list_item_collapse_image);
         image.setImageDrawable(getDrawable(nodeInfo));
+        image.setClickable(false);
         image.setBackgroundDrawable(getDrawableOrDefaultBackground(indicatorBackgroundDrawable));
         image.setScaleType(ScaleType.CENTER);
-        image.setTag(nodeInfo.getId());
-        if (nodeInfo.isWithChildren() && collapsible) {
-            image.setOnClickListener(indicatorClickListener);
-        } else {
-            image.setOnClickListener(null);
-        }
+//        image.setTag(nodeInfo.getId());
+//        if (nodeInfo.isWithChildren() && collapsible) {
+//            image.setOnClickListener(indicatorClickListener);
+//        } else {
+//            image.setOnClickListener(null);
+//        }
         layout.setTag(nodeInfo.getId());
         final FrameLayout frameLayout = (FrameLayout) layout
                 .findViewById(R.id.treeview_list_item_frame);
@@ -257,15 +294,21 @@ public class TreeViewAdapter extends BaseAdapter implements
         if (newChildView) {
             frameLayout.addView(childView, childParams);
         }
-        frameLayout.setTag(nodeInfo.getId());
+        //frameLayout.setTag(nodeInfo.getId());
         return layout;
     }
 
     protected int calculateIndentation(final TreeNodeInfo<Long> nodeInfo) {
-        return getIndentWidth() * (nodeInfo.getLevel() + (collapsible ? 1 : 0));
+    	return getIndentWidth() * (nodeInfo.getLevel() + (collapsible ? 1 : 0));
     }
 
     protected Drawable getDrawable(final TreeNodeInfo<Long> nodeInfo) {
+    	if (nodeInfo.isRoot()) {
+    		if (nodeInfo.isExpanded())
+    			return rootExpendedDrawable;
+    		else
+    			return rootCollapsedDrawable;
+    	}
         if (!nodeInfo.isWithChildren() || !collapsible) {
             return getDrawableOrDefaultBackground(indicatorBackgroundDrawable);
         }
@@ -280,6 +323,15 @@ public class TreeViewAdapter extends BaseAdapter implements
         this.indicatorGravity = indicatorGravity;
     }
 
+    public void setRootCollapsedDrawable(final Drawable rootDrawable) {
+    	this.rootCollapsedDrawable = rootDrawable;
+    	calculateIndentWidth();
+    }
+    
+    public void setRootExpendedDrawable(final Drawable rootExpendedDrawable) {
+    	this.rootExpendedDrawable = rootExpendedDrawable;
+    	calculateIndentWidth();
+    }
     public void setCollapsedDrawable(final Drawable collapsedDrawable) {
         this.collapsedDrawable = collapsedDrawable;
         calculateIndentWidth();
@@ -316,38 +368,44 @@ public class TreeViewAdapter extends BaseAdapter implements
         return indentWidth;
     }
 
-    @SuppressWarnings("unchecked")
-    public void handleItemClick(final View view, final Object id) {
-        expandCollapse((Long) id);
+    public void handleItemClick(AdapterView<?> parent, View view, int position, long id) {
+//        expandCollapse((Long) id);
         
-        final Long longId = (Long) id;
-        final TreeNodeInfo<Long> info = treeStateManager.getNodeInfo(longId);
-        if (info.isWithChildren()) {
-        	expandCollapse((Long) id);
-        } else {
-            final ViewGroup vg = (ViewGroup) view;
-//            final CheckBox cb = (CheckBox) vg
-//                    .findViewById(R.id.demo_list_checkbox);
-//            cb.performClick();
+        Long longId = (Long) id;
+        TreeNodeInfo<Long> info = treeStateManager.getNodeInfo(longId);
+        
+//		int childCount = parent.getChildCount();
+//		for(int i=0; i<childCount; i++) {
+//			if(i == position) {
+//				parent.getChildAt(i).setBackgroundColor(Color.BLUE);
+//			}
+//			else {
+//				parent.getChildAt(i).setBackgroundColor(Color.BLACK);
+//			}
+//		}
+
+    	expandCollapse((Long) id);
+
+        List<Long> children = treeStateManager.getChildren(longId);
+        if (children != null || children.size() > 0) {
+        	for (Long childId : children) {
+                TreeNodeInfo<Long> childInfo = treeStateManager.getNodeInfo(childId);
+                if (childInfo.isNeedSearchChild())
+                	adapterParent.updateChildList(childId, childInfo.getPaht());
+        	}
         }
+
+
+//        if (info.isWithChildren()) {
+//    		if (info.isNeedSearchChild() && parent != null) {
+//    			adapterParent.updateChildList(longId, info.getPaht());
+//    		}
+//        }
     }
 
     @Override
     public long getItemId(final int position) {
         return getTreeId(position);
     }
-    
-    private String getDescription(final long id, final String message) {
-//        final Integer[] hierarchy = treeStateManager.getHierarchyDescription(id);
-        return message;
-    }
-
-//    private void changeSelected(final boolean isChecked, final Long id) {
-//        if (isChecked) {
-//            selected.add(id);
-//        } else {
-//            selected.remove(id);
-//        }
-//    }
     
 }

@@ -3,20 +3,27 @@ package com.cremamobile.filemanager.treeview;
 import com.cremamobile.filemanager.R;
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.graphics.Color;
 import android.graphics.drawable.Drawable;
+import android.os.Handler;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListAdapter;
 import android.widget.ListView;
+import android.widget.AdapterView.OnItemClickListener;
 
 public class TreeViewList extends ListView {
-    private static final int DEFAULT_COLLAPSED_RESOURCE = R.drawable.collapsed;
-    private static final int DEFAULT_EXPANDED_RESOURCE = R.drawable.expanded;
+	private static final int DEFAULT_ROOT_EXPENDED_RESOURCE = R.drawable.cross_01;
+	private static final int DEFAULT_ROOT_COLLAPSED_RESOURCE = R.drawable.minus_01;	
+    private static final int DEFAULT_COLLAPSED_RESOURCE = R.drawable.cross_01;
+    private static final int DEFAULT_EXPANDED_RESOURCE = R.drawable.minus_01;
     private static final int DEFAULT_INDENT = 0;
     private static final int DEFAULT_GRAVITY = Gravity.LEFT
             | Gravity.CENTER_VERTICAL;
+    private Drawable rootCollapsedDrawable;
+    private Drawable rootExpendedDrawable;
     private Drawable expandedDrawable;
     private Drawable collapsedDrawable;
     private Drawable rowBackgroundDrawable;
@@ -26,7 +33,8 @@ public class TreeViewList extends ListView {
     private TreeViewAdapter treeAdapter;
     private boolean collapsible;
     private boolean handleTrackballPress;
-
+    private Handler	parentHandler;
+    
     public TreeViewList(final Context context, final AttributeSet attrs) {
         this(context, attrs, R.style.treeViewListStyle);
     }
@@ -44,6 +52,15 @@ public class TreeViewList extends ListView {
     private void parseAttributes(final Context context, final AttributeSet attrs) {
         final TypedArray a = context.obtainStyledAttributes(attrs,
                 R.styleable.TreeViewList);
+        rootCollapsedDrawable = a.getDrawable(R.styleable.TreeViewList_src_root_collapsed);
+        if (rootCollapsedDrawable == null) {
+        	rootCollapsedDrawable = context.getResources().getDrawable(DEFAULT_ROOT_COLLAPSED_RESOURCE);
+        }
+        rootExpendedDrawable = a.getDrawable(R.styleable.TreeViewList_src_root_expended);
+        if (rootExpendedDrawable == null) {
+        	rootExpendedDrawable = context.getResources().getDrawable(DEFAULT_ROOT_EXPENDED_RESOURCE);
+        }
+        
         expandedDrawable = a.getDrawable(R.styleable.TreeViewList_src_expanded);
         if (expandedDrawable == null) {
             expandedDrawable = context.getResources().getDrawable(
@@ -80,6 +97,8 @@ public class TreeViewList extends ListView {
     }
 
     private void syncAdapter() {
+    	treeAdapter.setRootCollapsedDrawable(rootCollapsedDrawable);
+    	treeAdapter.setRootExpendedDrawable(rootExpendedDrawable);    	
         treeAdapter.setCollapsedDrawable(collapsedDrawable);
         treeAdapter.setExpandedDrawable(expandedDrawable);
         treeAdapter.setIndicatorGravity(indicatorGravity);
@@ -87,20 +106,28 @@ public class TreeViewList extends ListView {
         treeAdapter.setIndicatorBackgroundDrawable(indicatorBackgroundDrawable);
         treeAdapter.setRowBackgroundDrawable(rowBackgroundDrawable);
         treeAdapter.setCollapsible(collapsible);
-        if (handleTrackballPress) {
-            setOnItemClickListener(new OnItemClickListener() {
-                @Override
-                public void onItemClick(final AdapterView< ? > parent,
-                        final View view, final int position, final long id) {
-                    treeAdapter.handleItemClick(view, view.getTag());
-                }
-            });
-        } else {
-            setOnClickListener(null);
-        }
+        setOnItemClickListener(new OnItemClickListener() {
+            @Override
+            public void onItemClick(final AdapterView< ? > parent,
+                    final View view, final int position, final long id) {
+                treeAdapter.handleItemClick(parent, view, position, (Long)view.getTag());
+            }
+        });
+//        if (handleTrackballPress) {
+//            setOnItemClickListener(new OnItemClickListener() {
+//                @Override
+//                public void onItemClick(final AdapterView< ? > parent,
+//                        final View view, final int position, final long id) {
+//                    treeAdapter.handleItemClick(view, view.getTag());
+//                }
+//            });
+//        } else {
+//            setOnClickListener(null);
+//        }
 
     }
 
+    
     public void setExpandedDrawable(final Drawable expandedDrawable) {
         this.expandedDrawable = expandedDrawable;
         syncAdapter();
@@ -150,6 +177,15 @@ public class TreeViewList extends ListView {
         treeAdapter.refresh();
     }
 
+    public Drawable getRootExpendedDrawable() {
+    	return rootExpendedDrawable;
+    }
+    
+    public Drawable getRootCollapsedDrawable() {
+    	return rootCollapsedDrawable;
+    }
+    
+    
     public Drawable getExpandedDrawable() {
         return expandedDrawable;
     }

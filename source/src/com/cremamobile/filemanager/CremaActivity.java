@@ -3,18 +3,20 @@ package com.cremamobile.filemanager;
 import java.util.Locale;
 
 import com.cremamobile.filemanager.file.FindHistory;
+import com.cremamobile.filemanager.receiver.ExternalMountBroadcastReceiver;
 import com.cremamobile.filemanager.service.*;
 import com.google.analytics.tracking.android.EasyTracker;
-
 
 import android.app.Activity;
 import android.support.v7.app.ActionBarActivity;
 import android.support.v7.app.ActionBar;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.res.Configuration;
 import android.os.Build;
@@ -53,6 +55,11 @@ public class CremaActivity extends ActionBarActivity implements
 	 */
 	private CharSequence mTitle;
 
+	/**
+	 * mount sdcard ..etc..
+	 */
+	ExternalMountBroadcastReceiver mReceiver;
+	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -61,7 +68,8 @@ public class CremaActivity extends ActionBarActivity implements
 		mNavigationDrawerFragment = (NavigationDrawerFragment) getSupportFragmentManager()
 				.findFragmentById(R.id.navigation_drawer);
 		mTitle = getTitle();
-
+		getActionBar().setIcon(R.drawable.folder_01);
+		
 		// Set up the drawer.
 		mNavigationDrawerFragment.setUp(R.id.navigation_drawer,
 				(DrawerLayout) findViewById(R.id.drawer_layout));
@@ -73,6 +81,8 @@ public class CremaActivity extends ActionBarActivity implements
 		
 //		Intent intent = new Intent("kr.letsnow.crema.service.IRemoteService");
 		startService(intent);
+		
+		RegisterUpdateReceiver();
 	}
 
 	@Override
@@ -95,6 +105,8 @@ public class CremaActivity extends ActionBarActivity implements
 		
 		Intent intent = new Intent("com.cremamobile.filemanager.IRemoteService");
 		stopService(intent);
+		
+		//
 		super.onDestroy();
 	}
 	
@@ -109,17 +121,18 @@ public class CremaActivity extends ActionBarActivity implements
 	}
 
 	public void onSectionAttached(int number) {
-		switch (number) {
-		case 1:
-			mTitle = getString(R.string.title_section1);
-			break;
-		case 2:
-			mTitle = getString(R.string.title_section2);
-			break;
-		case 3:
-			mTitle = getString(R.string.title_section3);
-			break;
-		}
+		mTitle = getString(R.string.app_name);
+//		switch (number) {
+//		case 1:
+//			mTitle = getString(R.string.title_section1);
+//			break;
+//		case 2:
+//			mTitle = getString(R.string.title_section2);
+//			break;
+//		case 3:
+//			mTitle = getString(R.string.title_section3);
+//			break;
+//		}
 	}
 
 	public void restoreActionBar() {
@@ -278,5 +291,16 @@ public class CremaActivity extends ActionBarActivity implements
 			cfg.locale = Locale.getDefault();
 		
 		ctx.getResources().updateConfiguration(cfg, null);
-	  }
+	}
+	
+	private void RegisterUpdateReceiver()
+	{
+	    IntentFilter intentFilter = new IntentFilter();
+	    intentFilter.addAction("android.intent.action.MEDIA_MOUNTED");
+	    intentFilter.addDataScheme("file");
+	    mReceiver = new ExternalMountBroadcastReceiver();
+	    this.registerReceiver(mReceiver, intentFilter);
+	    
+	    //<data android:scheme="file" />
+	}
 }

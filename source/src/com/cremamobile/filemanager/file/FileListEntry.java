@@ -8,6 +8,7 @@ public class FileListEntry {
 
 	private boolean isDir = false;
 	private File path;
+	private String absolutePath;
 	private String name;
 	private String ext;
 	private long size = 0;
@@ -19,6 +20,7 @@ public class FileListEntry {
 	public FileListEntry(String fqpath) {
 		this.path = new File(fqpath);
 		this.isDir = FileUtils.isDir(this.path);
+		this.absolutePath = fqpath;
 		this.name = path.getName();
 		int pos = name.lastIndexOf( "." );
 		if (pos > 0) {
@@ -29,6 +31,7 @@ public class FileListEntry {
 	public FileListEntry(File file) {
 		this.path = file;
 		this.isDir = FileUtils.isDir(this.path);
+		this.absolutePath = path.getAbsolutePath();
 		this.name = path.getName();
 		int pos = name.lastIndexOf( "." );
 		if (pos > 0) {
@@ -45,9 +48,18 @@ public class FileListEntry {
 		this.path = path;
 	}
 
+	public String getAbsolutePath() {
+		return absolutePath;
+	}
+	
+	public void setAbsolutePath(String name) {
+		absolutePath = name;
+	}
+	
 	public String getName() {
 		return name;
 	}
+	
 	public void setName(String name) {
 		this.name = name;
 	}

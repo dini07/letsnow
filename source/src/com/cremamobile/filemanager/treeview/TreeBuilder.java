@@ -1,5 +1,7 @@
 package com.cremamobile.filemanager.treeview;
 
+import com.cremamobile.filemanager.utils.CLog;
+
 import android.util.Log;
 
 /**
@@ -14,8 +16,6 @@ import android.util.Log;
  * @param <T>
  */
 public class TreeBuilder<T> {
-    private static final String TAG = TreeBuilder.class.getSimpleName();
-
     private final TreeStateManager<T> manager;
 
     private T lastAddedId = null;
@@ -43,9 +43,9 @@ public class TreeBuilder<T> {
      * @param child
      *            child id
      */
-    public synchronized void addRelation(final T parent, final T child, final String message) {
-        Log.d(TAG, "Adding relation parent:" + parent + " -> child: " + child);
-        manager.addAfterChild(parent, child, message, null);
+    public synchronized void addRelation(final T parent, final T child, final String childPath, final String childName, final boolean isRoot) {
+        CLog.d(this, "Adding relation parent:" + parent + " -> child: " + child);
+        manager.addAfterChild(parent, child, childPath, childName, isRoot, null);
         lastAddedId = child;
         lastLevel = manager.getLevel(child);
     }
@@ -63,16 +63,16 @@ public class TreeBuilder<T> {
      * @param level
      *            its level
      */
-    public synchronized void sequentiallyAddNextNode(final T id, final String message, final int level) {
-        Log.d(TAG, "Adding sequentiall node " + id + " at level " + level);
+    public synchronized void sequentiallyAddNextNode(final T id, final String path, final String name, final boolean isRoot, final int level) {
+        CLog.d(this, "Adding sequentiall node " + id + " at level " + level);
         if (lastAddedId == null) {
-            addNodeToParentOneLevelDown(null, id, message, level);
+            addNodeToParentOneLevelDown(null, id, path, name, isRoot, level);
         } else {
             if (level <= lastLevel) {
                 final T parent = findParentAtLevel(lastAddedId, level - 1);
-                addNodeToParentOneLevelDown(parent, id, message, level);
+                addNodeToParentOneLevelDown(parent, id, path, name, isRoot, level);
             } else {
-                addNodeToParentOneLevelDown(lastAddedId, id, message, level);
+                addNodeToParentOneLevelDown(lastAddedId, id, path, name, isRoot, level);
             }
         }
     }
@@ -108,8 +108,8 @@ public class TreeBuilder<T> {
      * @param level
      *            should always be parent's level + 1
      */
-    private void addNodeToParentOneLevelDown(final T parent, final T id, final String message, 
-            final int level) {
+    private void addNodeToParentOneLevelDown(final T parent, final T id, final String path, final String name, 
+            final boolean isRoot, final int level) {
         if (parent == null && level != 0) {
             throw new TreeConfigurationException("Trying to add new id " + id
                     + " to top level with level != 0 (" + level + ")");
@@ -120,13 +120,17 @@ public class TreeBuilder<T> {
                     + manager.getLevel(parent)
                     + ">. The difference in levels up is bigger than 1.");
         }
-        manager.addAfterChild(parent, id, message, null);
+        manager.addAfterChild(parent, id, path, name, isRoot, null);
         setLastAdded(id, level);
     }
 
     private void setLastAdded(final T id, final int level) {
         lastAddedId = id;
         lastLevel = level;
+    }
+    
+    public T getLastAddedId() {
+    	return lastAddedId;
     }
 
 }

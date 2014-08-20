@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="color_listview_selected">#d9d9d9</color>
+    <color name="color_listview_background">#ffffff</color>
+    <color name="color_listview_text">#2c2c2c</color>
+    <color name="color_listview_divider">#c9c9c9</color>
+    
+    <color name="color_title_text">#ffffff</color>
+    
+    <color name="color_storage_background">#ffffff</color>
+    <color name="color_drawer_background">#000000</color>
+    <color name="color_drawer_divider">#c6c6c6</color>
+    <color name="color_drawer_total_size_text">#96cf0b</color>
+    <color name="color_drawer_use_size_text">#5b5b5b</color>
+    
+</resources>

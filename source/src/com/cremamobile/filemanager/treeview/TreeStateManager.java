@@ -62,6 +62,8 @@ public interface TreeStateManager<T> extends Serializable {
      */
     T getParent(T id);
 
+    void addRoot(T parent, T root, String rootMessage);
+    
     /**
      * Adds the node before child or at the beginning.
      * 
@@ -72,7 +74,7 @@ public interface TreeStateManager<T> extends Serializable {
      * @param beforeChild
      *            child before which to add the new child
      */
-    void addBeforeChild(T parent, T newChild, String childMessage, T beforeChild);
+    void addBeforeChild(T parent, T newChild, String childPath, String childName, boolean isRoot, T beforeChild);
 
     /**
      * Adds the node after child or at the end.
@@ -84,7 +86,7 @@ public interface TreeStateManager<T> extends Serializable {
      * @param afterChild
      *            child after which to add the new child
      */
-    void addAfterChild(T parent, T newChild, String childMessage, T afterChild);
+    void addAfterChild(T parent, T newChild, String childPath, String childName, boolean isRoot, T afterChild);
 
     /**
      * Removes the node and all children from the tree.
@@ -190,4 +192,10 @@ public interface TreeStateManager<T> extends Serializable {
      * Refreshes views connected to the manager.
      */
     void refresh();
+    
+    boolean needUpdateChildrenNode(T id);
+    
+    void setTreeBuilder(TreeBuilder<T> builder);
+    
+    TreeBuilder<T> getTreeBuilder();
 }

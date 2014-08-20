@@ -25,12 +25,13 @@ public class InMemoryTreeStateManager<T> implements TreeStateManager<T> {
     private static final long serialVersionUID = 1L;
     private final Map<T, InMemoryTreeNode<T>> allNodes = new HashMap<T, InMemoryTreeNode<T>>();
     private final InMemoryTreeNode<T> topSentinel = new InMemoryTreeNode<T>(
-            null, null, null, -1, true);
+            null, null, null, false, null, -1, true);
     private transient List<T> visibleListCache = null; // lasy initialised
     private transient List<T> unmodifiableVisibleList = null;
     private boolean visibleByDefault = true;
     private final transient Set<DataSetObserver> observers = new HashSet<DataSetObserver>();
-
+    private TreeBuilder<T> builder;
+    
     private synchronized void internalDataSetChanged() {
         visibleListCache = null;
         unmodifiableVisibleList = null;
@@ -38,7 +39,7 @@ public class InMemoryTreeStateManager<T> implements TreeStateManager<T> {
             observer.onChanged();
         }
     }
-
+    
     /**
      * If true new nodes are visible by default.
      * 
@@ -82,8 +83,8 @@ public class InMemoryTreeStateManager<T> implements TreeStateManager<T> {
         if (!children.isEmpty() && children.get(0).isVisible()) {
             expanded = true;
         }
-        return new TreeNodeInfo<T>(id, node.getMessage(), node.getLevel(), !children.isEmpty(),
-                node.isVisible(), expanded);
+        return new TreeNodeInfo<T>(id, node.getPath(), node.getName(), node.isRoot(), node.getLevel(), !children.isEmpty(),
+                node.isVisible(), expanded, node.isNeedSearchChild());
     }
 
     @Override
@@ -110,43 +111,45 @@ public class InMemoryTreeStateManager<T> implements TreeStateManager<T> {
     }
 
     @Override
-    public synchronized void addBeforeChild(final T parent, final T newChild, final String childMessage, 
-            final T beforeChild) {
+    public synchronized void addBeforeChild(final T parent, final T newChild, final String childPath, final String childName,
+    		final boolean isRoot, final T beforeChild) {
         expectNodeNotInTreeYet(newChild);
         final InMemoryTreeNode<T> node = getNodeFromTreeOrThrowAllowRoot(parent);
         final boolean visibility = getChildrenVisibility(node);
         // top nodes are always expanded.
         if (beforeChild == null) {
-            final InMemoryTreeNode<T> added = node.add(0, newChild, childMessage, visibility);
+            final InMemoryTreeNode<T> added = node.add(0, newChild, childPath, childName, isRoot, visibility);
             allNodes.put(newChild, added);
         } else {
             final int index = node.indexOf(beforeChild);
             final InMemoryTreeNode<T> added = node.add(index == -1 ? 0 : index,
-                    newChild, childMessage, visibility);
+                    newChild, childPath, childName, isRoot, visibility);
             allNodes.put(newChild, added);
         }
+        node.setNeedSearchChild(false);
         if (visibility) {
             internalDataSetChanged();
         }
     }
 
     @Override
-    public synchronized void addAfterChild(final T parent, final T newChild, final String childMessage, 
-            final T afterChild) {
+    public synchronized void addAfterChild(final T parent, final T newChild, final String childPath, final String childName, 
+            final boolean isRoot, final T afterChild) {
         expectNodeNotInTreeYet(newChild);
         final InMemoryTreeNode<T> node = getNodeFromTreeOrThrowAllowRoot(parent);
         final boolean visibility = getChildrenVisibility(node);
         if (afterChild == null) {
             final InMemoryTreeNode<T> added = node.add(
-                    node.getChildrenListSize(), newChild, childMessage, visibility);
+                    node.getChildrenListSize(), newChild, childPath, childName, isRoot, visibility);
             allNodes.put(newChild, added);
         } else {
             final int index = node.indexOf(afterChild);
             final InMemoryTreeNode<T> added = node.add(
-                    index == -1 ? node.getChildrenListSize() : index + 1, newChild, childMessage, 
+                    index == -1 ? node.getChildrenListSize() : index + 1, newChild, childPath, childName, isRoot,
                     visibility);
             allNodes.put(newChild, added);
         }
+        node.setNeedSearchChild(false);
         if (visibility) {
             internalDataSetChanged();
         }
@@ -377,5 +380,31 @@ public class InMemoryTreeStateManager<T> implements TreeStateManager<T> {
     public void refresh() {
         internalDataSetChanged();
     }
+
+	@Override
+	public void addRoot(T parent, T root, String rootMessage) {
+		// TODO Auto-generated method stub
+		
+	}
+	
+	@Override
+	public boolean needUpdateChildrenNode(T id) {
+		TreeNodeInfo<T> node = getNodeInfo(id);
+		if (node != null && node.isNeedSearchChild())
+			return true;
+		
+		return false;
+	}
+
+	@Override
+    public TreeBuilder<T> getTreeBuilder() {
+    	return builder;
+    }
+
+	@Override
+	public void setTreeBuilder(TreeBuilder<T> builder) {
+		// TODO Auto-generated method stub
+		this.builder = builder;
+	}
 
 }
